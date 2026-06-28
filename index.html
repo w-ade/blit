@@ -112,9 +112,9 @@
     box-decoration-break: clone; -webkit-box-decoration-break: clone;
   }
   .brandicon { color: var(--ink); line-height: 0; margin: 0; }
-  .brandicon svg { display: block; }
-  .brandicon:hover svg { animation: blit-spin 1.2s linear infinite; }
+  .brandicon svg { display: block; animation: blit-spin 10s linear infinite; transform-origin: 50% 50%; }
   @keyframes blit-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .brandicon svg { animation: none; } }
 </style>
 </head>
 <body>
@@ -142,13 +142,10 @@
 
     <div class="copy">
       <p class="bio"><strong>&ldquo;Blit&rdquo;</strong> is primarily a computer graphics term. It refers to the rapid copying or moving of a block of digital data (like a bitmap, texture, or sprite) from one location in memory to another. Short for <em>bit-block transfer</em> (often called <em>bitblt</em>).</p>
-      <p class="brandicon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M21 12C21 13.1046 20.1046 14 19 14C17.8954 14 17 13.1046 17 12C17 10.8954 17.8954 10 19 10C20.1046 10 21 10.8954 21 12Z" fill="#FF3B30"/>
-        <path d="M7 12C7 13.1046 6.10457 14 5 14C3.89543 14 3 13.1046 3 12C3 10.8954 3.89543 10 5 10C6.10457 10 7 10.8954 7 12Z" fill="#FF9500"/>
-        <path d="M14.5003 16.3308C15.4569 15.7785 16.6801 16.1062 17.2324 17.0628C17.7847 18.0194 17.4569 19.2426 16.5003 19.7949C15.5437 20.3472 14.3206 20.0194 13.7683 19.0628C13.216 18.1062 13.5437 16.8831 14.5003 16.3308Z" fill="#FFCC00"/>
-        <path d="M7.50033 4.20578C8.45692 3.6535 9.6801 3.98125 10.2324 4.93783C10.7847 5.89442 10.4569 7.1176 9.50033 7.66988C8.54375 8.22217 7.32057 7.89442 6.76828 6.93783C6.216 5.98125 6.54375 4.75807 7.50033 4.20578Z" fill="#34C759"/>
-        <path d="M7.50033 19.7949C6.54375 19.2426 6.216 18.0194 6.76828 17.0628C7.32057 16.1062 8.54375 15.7785 9.50033 16.3308C10.4569 16.8831 10.7847 18.1062 10.2324 19.0628C9.6801 20.0194 8.45692 20.3472 7.50033 19.7949Z" fill="#007AFF"/>
-        <path d="M14.5003 7.66988C13.5437 7.1176 13.216 5.89442 13.7683 4.93783C14.3206 3.98125 15.5437 3.6535 16.5003 4.20578C17.4569 4.75807 17.7847 5.98125 17.2324 6.93783C16.6801 7.89442 15.4569 8.22217 14.5003 7.66988Z" fill="#AF52DE"/>
+      <p class="brandicon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M17.4453 17C17.4453 18.6569 16.1022 20 14.4453 20C12.7885 20 11.4453 18.6569 11.4453 17C11.4453 15.3431 12.7885 14 14.4453 14C16.1022 14 17.4453 15.3431 17.4453 17Z" stroke="#007AFF" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M4.70307 7.13196L10.0104 11.5853L3.5 13.9549L4.70307 7.13196Z" stroke="#34C759" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M14.4347 4.71593C14.5777 4.18246 15.126 3.86588 15.6595 4.00882L19.5232 5.0441C20.0566 5.18704 20.3732 5.73537 20.2303 6.26884L19.195 10.1325C19.0521 10.666 18.5037 10.9826 17.9703 10.8397L14.1066 9.80437C13.5731 9.66143 13.2565 9.1131 13.3994 8.57963L14.4347 4.71593Z" stroke="#FF3B30" stroke-width="2" stroke-linejoin="round"/>
       </svg></p>
       <p>@ <a href="https://wa-de.org" target="_blank" rel="noopener noreferrer">wa-de</a></p>
     </div>
