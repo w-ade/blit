@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>blox</title>
-<meta name="description" content="blox" />
+<title>blit</title>
+<meta name="description" content="blit" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;700&family=Geist+Mono:wght@400&display=swap" rel="stylesheet" />
@@ -17,7 +17,7 @@
     font-display: swap;
   }
   :root {
-    --accent: #4f46e5;        /* the one color the avatars are drawn in */
+    --accent: #4642d7;        /* the wade-mark blue — the one color avatars are drawn in */
     --ink: #000;
     --muted: #737373;         /* neutral-500 */
     --bg: #fff;
@@ -101,14 +101,17 @@
   /* ---- copy ---- */
   .copy { color: var(--muted); display: flex; flex-direction: column; gap: .75rem; }
   .copy a { color: inherit; text-decoration: underline; }
-  .pixel { font-family: "Geist Pixel"; color: var(--ink); font-size: 11px; letter-spacing: .02em; -webkit-text-stroke: 1.1px var(--ink); }
+  .brandicon { color: var(--ink); line-height: 0; margin: 0; }
+  .brandicon svg { display: block; }
+  .brandicon:hover svg { animation: blit-spin 1.2s linear infinite; }
+  @keyframes blit-spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
   <div class="col">
     <div class="head">
-      <span class="wordmark">BLOX</span>
-      <span class="muted">www.blox.world</span>
+      <span class="wordmark">BLIT</span>
+      <span class="muted">www.blit.world</span>
       <span class="muted mono" id="clock">--:--:-- --</span>
     </div>
 
@@ -128,12 +131,27 @@
 
     <div class="copy">
       <p>Pixel-grid avatars rendered deterministically from any name or email.</p>
-      <p class="pixel">PUBLIC</p>
+      <p class="brandicon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7.43021 10.0321C7.15369 9.41121 7 8.72355 7 8C7 5.23858 9.23858 3 12 3C14.7614 3 17 5.23858 17 8C17 8.72355 16.8463 9.41121 16.5698 10.0321M7.43021 10.0321C4.93709 10.3149 3 12.4312 3 15C3 17.7614 5.23858 20 8 20C9.6356 20 11.0878 19.2147 12 18.0005M7.43021 10.0321C8.13538 11.6155 9.63934 12.7647 11.4302 12.9679M16.5698 10.0321C16.3828 10.0109 16.1927 10 16 10C14.3644 10 12.9122 10.7853 12 11.9995M16.5698 10.0321C19.0629 10.3149 21 12.4312 21 15C21 17.7614 18.7614 20 16 20C14.3644 20 12.9122 19.2147 12 18.0005M12 11.9995C11.7756 12.2981 11.5839 12.6227 11.4302 12.9679M12 11.9995C12.2244 12.2981 12.4161 12.6227 12.5698 12.9679M11.4302 12.9679C11.6172 12.9891 11.8073 13 12 13C12.1927 13 12.3828 12.9891 12.5698 12.9679M12.5698 12.9679C12.8463 13.5888 13 14.2764 13 15C13 16.1258 12.6279 17.1647 12 18.0005" stroke="currentColor" stroke-width="2"/>
+      </svg></p>
       <p>@ <a href="https://wa-de.org" target="_blank" rel="noopener noreferrer">wa-de</a></p>
     </div>
   </div>
 
 <script>
+  // The wade mark — the base every avatar is generated from.
+  // 5x5, mirror-symmetric. These are the 3 free columns (0,1,2); cols 3,4 mirror 1,0.
+  const BASE = [
+    [1, 0, 0],
+    [1, 1, 0],
+    [0, 0, 1],
+    [1, 1, 0],
+    [1, 0, 1],
+  ];
+  const N = 5;        // 5x5 grid
+  const COLS = 3;     // free columns before mirroring
+  const FLIP = 0.28;  // chance each cell flips from the base in a variation (lower = closer to the mark)
+
   // ---- deterministic hash + PRNG -------------------------------------------
   function hashStr(str) {
     let h = 2166136261 >>> 0;            // FNV-1a
@@ -152,11 +170,15 @@
     };
   }
 
-  // ---- draw one identicon ---------------------------------------------------
-  // 5x5 grid, left half mirrored to the right (GitHub-style), one accent color.
-  function draw(canvas, seed, opts) {
+  // a variation of the wade mark: flip a seed-driven subset of cells
+  function halfFromSeed(seed) {
+    const rng = mulberry32(seed);
+    return BASE.map(row => row.map(b => (rng() < FLIP ? b ^ 1 : b)));
+  }
+
+  // ---- draw the 5x5 mark (mirrored, edge-to-edge, true square) --------------
+  function draw(canvas, half, opts) {
     opts = opts || {};
-    const cells = 5;
     const color = opts.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
     const dpr = opts.dpr || window.devicePixelRatio || 1;
     const cssSize = opts.size || canvas.clientWidth || 64;
@@ -164,28 +186,18 @@
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, size, size);
 
-    // white plate
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, size, size);
 
-    const rng = mulberry32(seed);
-    const pad = size * 0.14;
-    const grid = size - pad * 2;
-    const cell = grid / cells;
-    const cols = Math.ceil(cells / 2);
-
+    const cell = size / N;
     ctx.fillStyle = color;
-    for (let x = 0; x < cols; x++) {
-      for (let y = 0; y < cells; y++) {
-        if (rng() > 0.5) {
-          const px = pad + x * cell;
-          const py = pad + y * cell;
-          ctx.fillRect(Math.round(px), Math.round(py), Math.ceil(cell), Math.ceil(cell));
-          // mirror
-          const mx = pad + (cells - 1 - x) * cell;
-          ctx.fillRect(Math.round(mx), Math.round(py), Math.ceil(cell), Math.ceil(cell));
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (half[y][x]) {
+          ctx.fillRect(Math.round(x * cell), Math.round(y * cell), Math.ceil(cell), Math.ceil(cell));
+          const mx = N - 1 - x;   // mirror
+          ctx.fillRect(Math.round(mx * cell), Math.round(y * cell), Math.ceil(cell), Math.ceil(cell));
         }
       }
     }
@@ -195,53 +207,58 @@
   const preview = document.getElementById('preview');
   const seedInput = document.getElementById('seed');
   const strip = document.getElementById('strip');
-  let currentSeed = hashStr('wade@hellowade.dev');
-
   const EXPORT_SIZE = 1024;   // resolution of the downloaded PNG
-  const stripSeed = (i) => (currentSeed ^ Math.imul(i + 1, 2654435761)) >>> 0;
 
-  // strip of 5 little ones
+  let currentSeed = 0;
+  let currentHalf = BASE;     // default = the exact wade mark
+
+  const stripSeed = (i) => (currentSeed ^ Math.imul(i + 1, 2654435761)) >>> 0;
+  const stripHalf = (i) => halfFromSeed(stripSeed(i));
+
+  // strip of 5 sibling variations
   const stripCanvases = [];
   for (let i = 0; i < 5; i++) {
     const c = document.createElement('canvas');
-    c.title = 'click to download PNG';
+    c.title = 'click to use this one';
     strip.appendChild(c);
     stripCanvases.push(c);
-    c.addEventListener('click', () => download(stripSeed(i), 'blox-' + i));
+    c.addEventListener('click', () => { currentHalf = stripHalf(i); renderAll(); });
   }
 
   function renderAll() {
-    draw(preview, currentSeed);
-    stripCanvases.forEach((c, i) => draw(c, stripSeed(i)));
+    draw(preview, currentHalf);
+    stripCanvases.forEach((c, i) => draw(c, stripHalf(i)));
   }
 
   // render fresh at full resolution, then save — independent of on-screen size
-  function download(seed, name) {
+  function downloadHalf(half, name) {
     const c = document.createElement('canvas');
     c.style.width = EXPORT_SIZE + 'px';   // draw() reads clientWidth
     document.body.appendChild(c);
-    draw(c, seed, { dpr: 1, size: EXPORT_SIZE });
+    draw(c, half, { dpr: 1, size: EXPORT_SIZE });
     document.body.removeChild(c);
     const a = document.createElement('a');
-    a.download = (name || 'blox') + '.png';
+    a.download = (name || 'blit') + '.png';
     a.href = c.toDataURL('image/png');
     a.click();
   }
 
   seedInput.addEventListener('input', () => {
     const v = seedInput.value.trim();
-    currentSeed = v ? hashStr(v) : hashStr('wade@hellowade.dev');
+    if (v) { currentSeed = hashStr(v); currentHalf = halfFromSeed(currentSeed); }
+    else   { currentSeed = 0; currentHalf = BASE; }   // empty → exact mark
     renderAll();
   });
 
   document.getElementById('randomBtn').addEventListener('click', () => {
     currentSeed = (Math.random() * 0xffffffff) >>> 0;
+    currentHalf = halfFromSeed(currentSeed);
     seedInput.value = '';
     renderAll();
   });
 
-  document.getElementById('previewWrap').addEventListener('click', () => download(currentSeed, 'blox'));
-  document.getElementById('downloadBtn').addEventListener('click', () => download(currentSeed, 'blox'));
+  document.getElementById('previewWrap').addEventListener('click', () => downloadHalf(currentHalf, 'blit'));
+  document.getElementById('downloadBtn').addEventListener('click', () => downloadHalf(currentHalf, 'blit'));
 
   // ---- live clock (CST, like the original) ----------------------------------
   function tick() {
