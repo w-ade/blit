@@ -165,15 +165,13 @@
   const BRAND = '#4642d7';  // the wade-mark blue (legacy)
   const BONE = '#E8E1CE';   // the blit logo color — forever
   const PLATE = '#1c1c1e';  // dark tile behind the bone logo
-  // the blit logo (7×7 "b") — the fixed default, never generated
+  // the blit logo (#11) — the fixed default, never generated
   const LOGO = [
-    [1, 1, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 0, 0, 0],
-    [1, 1, 1, 1, 1, 1, 0],
-    [1, 1, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 1, 1, 0],
-    [1, 1, 1, 1, 1, 1, 0],
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 0],
+    [0, 1, 0, 1, 0],
   ];
 
   // each generated mark gets its own color, deterministically from its seed
@@ -276,7 +274,7 @@
     return currentSeed === null ? LOGO : fullFromHalf(halfFromSeed(currentSeed));
   }
   function currentPaint() {
-    if (currentSeed === null) return { color: BONE, plate: PLATE };   // the logo, forever bone
+    if (currentSeed === null) return { color: '#292929' };   // logo: the #11 blob
     return Object.assign({ plate: '#fff' }, paintFor(currentSeed));
   }
 
