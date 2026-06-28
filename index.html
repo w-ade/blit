@@ -165,12 +165,12 @@
   const BRAND = '#4642d7';  // the wade-mark blue (legacy)
   const BONE = '#E8E1CE';   // the blit logo color — forever
   const PLATE = '#1c1c1e';  // dark tile behind the bone logo
-  // the blit logo (#11) — the fixed default, never generated
+  // the blitblob (#22) — the fixed default, never generated
   const LOGO = [
-    [0, 0, 0, 0, 0],
-    [0, 1, 1, 1, 0],
-    [1, 1, 1, 1, 1],
-    [0, 1, 1, 1, 0],
+    [0, 1, 0, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1],
+    [1, 0, 0, 0, 1],
     [0, 1, 0, 1, 0],
   ];
 
@@ -215,15 +215,21 @@
     };
   }
 
-  // a variation of the wade mark: flip a seed-driven subset of cells
-  function halfFromSeed(seed) {
+  // a fully symmetric (4-fold) 5×5 mark from a seed:
+  // only the top-left 3×3 quadrant is free; it's mirrored across both axes.
+  function gridFromSeed(seed) {
     const rng = mulberry32(seed);
-    return BASE.map(row => row.map(b => (rng() < FLIP ? b ^ 1 : b)));
+    const q = [];
+    for (let y = 0; y < 3; y++) { const r = []; for (let x = 0; x < 3; x++) r.push(rng() < 0.5 ? 1 : 0); q.push(r); }
+    const grid = [];
+    for (let y = 0; y < N; y++) {
+      const r = [];
+      for (let x = 0; x < N; x++) r.push(q[Math.min(y, N - 1 - y)][Math.min(x, N - 1 - x)]);
+      grid.push(r);
+    }
+    return grid;
   }
-  // expand a mirrored half (5×3) into the full 5×5 grid
-  function fullFromHalf(half) {
-    return half.map(row => [row[0], row[1], row[2], row[1], row[0]]);
-  }
+  function fillCount(grid) { let s = 0; grid.forEach(r => r.forEach(c => s += c)); return s; }
 
   // ---- draw a full grid (edge-to-edge, true square) ------------------------
   function draw(canvas, grid, opts) {
@@ -239,7 +245,15 @@
     ctx.fillStyle = opts.plate || '#fff';
     ctx.fillRect(0, 0, size, size);
 
-    if (opts.gradient) {
+    if (opts.vfade) {
+      // bg-linear-to-b from-transparent to-black/80, gradient-ease-in
+      const g = ctx.createLinearGradient(0, 0, 0, size);
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10;
+        g.addColorStop(t, 'rgba(0,0,0,' + (0.8 * t * t) + ')');   // ease-in (quad)
+      }
+      ctx.fillStyle = g;
+    } else if (opts.gradient) {
       const g = ctx.createLinearGradient(0, 0, size, size);
       opts.gradient.forEach((c, i) => g.addColorStop(i / (opts.gradient.length - 1), c));
       ctx.fillStyle = g;
@@ -271,10 +285,10 @@
 
   // grid + paint currently on screen
   function currentGrid() {
-    return currentSeed === null ? LOGO : fullFromHalf(halfFromSeed(currentSeed));
+    return currentSeed === null ? LOGO : gridFromSeed(currentSeed);
   }
   function currentPaint() {
-    if (currentSeed === null) return { color: '#292929' };   // logo: the #11 blob
+    if (currentSeed === null) return { vfade: true };   // blitblob: transparent→black/80 ease-in
     return Object.assign({ plate: '#fff' }, paintFor(currentSeed));
   }
 
@@ -296,7 +310,8 @@
   }
 
   document.getElementById('randomBtn').addEventListener('click', () => {
-    currentSeed = (Math.random() * 0xffffffff) >>> 0;
+    let s; do { s = (Math.random() * 0xffffffff) >>> 0; } while (fillCount(gridFromSeed(s)) < 6);
+    currentSeed = s;
     renderAll();
   });
 
