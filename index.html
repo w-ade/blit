@@ -162,11 +162,41 @@
   const N = 5;        // 5x5 grid
   const COLS = 3;     // free columns before mirroring
   const FLIP = 0.35;  // chance each cell flips from the base in a variation (lower = closer to the mark)
-  const BRAND = '#4642d7';  // the wade-mark blue (the default mark on load)
+  const BRAND = '#4642d7';  // the wade-mark blue (legacy)
+  const BONE = '#E8E1CE';   // the blit logo color — forever
+  const PLATE = '#1c1c1e';  // dark tile behind the bone logo
+  // the blit logo (7×7 "b") — the fixed default, never generated
+  const LOGO = [
+    [1, 1, 0, 0, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0, 0],
+    [1, 1, 1, 1, 1, 1, 0],
+    [1, 1, 0, 0, 1, 1, 0],
+    [1, 1, 0, 0, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 0],
+  ];
 
   // each generated mark gets its own color, deterministically from its seed
   function colorFromSeed(seed) {
     return 'hsl(' + (seed % 360) + ', 68%, 52%)';
+  }
+
+  // OKLCH -> sRGB (Björn Ottosson). L 0..1, C ~0..0.37, H degrees. Returns "rgb(r,g,b)".
+  function oklch(L, C, H) {
+    const h = H * Math.PI / 180;
+    const a = C * Math.cos(h), b = C * Math.sin(h);
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    let bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+    const enc = (x) => {
+      x = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+      return Math.max(0, Math.min(255, Math.round(x * 255)));
+    };
+    return 'rgb(' + enc(r) + ',' + enc(g) + ',' + enc(bl) + ')';
   }
 
   // ---- deterministic hash + PRNG -------------------------------------------
@@ -192,11 +222,15 @@
     const rng = mulberry32(seed);
     return BASE.map(row => row.map(b => (rng() < FLIP ? b ^ 1 : b)));
   }
+  // expand a mirrored half (5×3) into the full 5×5 grid
+  function fullFromHalf(half) {
+    return half.map(row => [row[0], row[1], row[2], row[1], row[0]]);
+  }
 
-  // ---- draw the 5x5 mark (mirrored, edge-to-edge, true square) --------------
-  function draw(canvas, half, opts) {
+  // ---- draw a full grid (edge-to-edge, true square) ------------------------
+  function draw(canvas, grid, opts) {
     opts = opts || {};
-    const color = opts.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    const n = grid.length;
     const dpr = opts.dpr || window.devicePixelRatio || 1;
     const cssSize = opts.size || canvas.clientWidth || 64;
     const size = cssSize * dpr;
@@ -204,25 +238,20 @@
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = opts.plate || '#fff';
     ctx.fillRect(0, 0, size, size);
 
-    const cell = size / N;
     if (opts.gradient) {
       const g = ctx.createLinearGradient(0, 0, size, size);
-      g.addColorStop(0, opts.gradient[0]);
-      g.addColorStop(1, opts.gradient[1]);
+      opts.gradient.forEach((c, i) => g.addColorStop(i / (opts.gradient.length - 1), c));
       ctx.fillStyle = g;
     } else {
-      ctx.fillStyle = color;
+      ctx.fillStyle = opts.color || '#000';
     }
-    for (let y = 0; y < N; y++) {
-      for (let x = 0; x < COLS; x++) {
-        if (half[y][x]) {
-          ctx.fillRect(Math.round(x * cell), Math.round(y * cell), Math.ceil(cell), Math.ceil(cell));
-          const mx = N - 1 - x;   // mirror
-          ctx.fillRect(Math.round(mx * cell), Math.round(y * cell), Math.ceil(cell), Math.ceil(cell));
-        }
+    const cell = size / n;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (grid[y][x]) ctx.fillRect(Math.round(x * cell), Math.round(y * cell), Math.ceil(cell), Math.ceil(cell));
       }
     }
   }
@@ -231,21 +260,28 @@
   const preview = document.getElementById('preview');
   const EXPORT_SIZE = 1024;   // resolution of the downloaded PNG
 
-  let currentSeed = null;     // null = the brand mark (default on load)
-  let currentHalf = BASE;     // the mark currently shown
+  let currentSeed = null;     // null = the blit logo (default on load)
   let gradientOn = false;
 
-  // the paint (flat color or gradient) for a given seed — fully generated, never chosen
+  // paint for a generated mark (never the logo)
   function paintFor(seed) {
-    // hue of the currently shown mark: 242 = brand blue, else from the seed
-    const h = seed === null ? 242 : seed % 360;
-    // gradient is the SAME hue, just light → dark of that one color
-    if (gradientOn) return { gradient: ['hsl(' + h + ', 78%, 61%)', 'hsl(' + h + ', 82%, 41%)'] };
-    return seed === null ? { color: BRAND } : { color: colorFromSeed(seed) };
+    const h = seed % 360;
+    // vibrant OKLCH hue-sweep, anchored at the mark's hue
+    if (gradientOn) return { gradient: [0, 70, 140, 210].map(d => oklch(0.70, 0.21, h + d)) };
+    return { color: colorFromSeed(seed) };
+  }
+
+  // grid + paint currently on screen
+  function currentGrid() {
+    return currentSeed === null ? LOGO : fullFromHalf(halfFromSeed(currentSeed));
+  }
+  function currentPaint() {
+    if (currentSeed === null) return { color: BONE, plate: PLATE };   // the logo, forever bone
+    return Object.assign({ plate: '#fff' }, paintFor(currentSeed));
   }
 
   function renderAll() {
-    draw(preview, currentHalf, paintFor(currentSeed));
+    draw(preview, currentGrid(), currentPaint());
   }
 
   // render fresh at full resolution, then save — independent of on-screen size
@@ -253,7 +289,7 @@
     const c = document.createElement('canvas');
     c.style.width = EXPORT_SIZE + 'px';   // draw() reads clientWidth
     document.body.appendChild(c);
-    draw(c, currentHalf, Object.assign({ dpr: 1, size: EXPORT_SIZE }, paintFor(currentSeed)));
+    draw(c, currentGrid(), Object.assign({ dpr: 1, size: EXPORT_SIZE }, currentPaint()));
     document.body.removeChild(c);
     const a = document.createElement('a');
     a.download = 'blit.png';
@@ -263,7 +299,6 @@
 
   document.getElementById('randomBtn').addEventListener('click', () => {
     currentSeed = (Math.random() * 0xffffffff) >>> 0;
-    currentHalf = halfFromSeed(currentSeed);
     renderAll();
   });
 
