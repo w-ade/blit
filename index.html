@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>blox</title>
+<meta name="description" content="blox" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;700&family=Geist+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  /* Geist Pixel — Vercel. Swap the file for Grid / Line / Circle / Triangle. */
+  @font-face {
+    font-family: "Geist Pixel";
+    src: url("fonts/GeistPixel-Square.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+  }
+  :root {
+    --accent: #4f46e5;        /* the one color the avatars are drawn in */
+    --ink: #000;
+    --muted: #737373;         /* neutral-500 */
+    --bg: #fff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Geist", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    line-height: 1.4;
+    font-size: 13px;
+    width: 16rem;
+    max-width: 100%;
+  }
+
+  /* ---- header block ---- */
+  .head { display: flex; flex-direction: column; gap: .25rem; }
+  .wordmark { font-weight: 700; font-size: 20px; margin-bottom: 1.25rem; letter-spacing: -.01em; }
+  .muted { color: var(--muted); }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  /* ---- generator ---- */
+  .gen { display: flex; flex-direction: column; gap: 1rem; }
+  .preview {
+    width: 64px; height: 64px; border-radius: 0;
+    background: #fff; overflow: hidden; cursor: pointer;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+    display: block;
+  }
+  .preview canvas { width: 100%; height: 100%; display: block; }
+
+  .field { display: flex; flex-direction: column; gap: .5rem; }
+  input[type=text] {
+    font: inherit; font-size: 13px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: .5rem .625rem;
+    width: 100%;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  ::placeholder { color: #a3a3a3; }
+
+  .actions { display: flex; gap: 8px; }
+  /* Dimsum ButtonComponent — variant: secondary, size: xs, shape: rounded */
+  button {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; gap: 6px;
+    height: 28px; padding: 0 12px;          /* size: xs */
+    border: 1px solid #E5E5E5;              /* secondary: --br-primary */
+    border-radius: 999px;                   /* shape: rounded (pill) */
+    background: #FFFFFF;                     /* secondary: --bg-primary */
+    color: #454545;                         /* secondary: --fg-secondary */
+    font-family: "ABC Diatype", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px; line-height: 1.36;
+    white-space: nowrap; cursor: pointer; outline: none;
+  }
+  button:hover { border-color: #DBDBDB; }   /* --br-primary-emphasis */
+
+  /* ---- strip (echo of the gl row) ---- */
+  .strip { display: flex; gap: .25rem; }
+  .strip canvas {
+    width: 16px; height: 16px; border-radius: 0;
+    background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+    cursor: pointer;
+  }
+
+  /* ---- copy ---- */
+  .copy { color: var(--muted); display: flex; flex-direction: column; gap: .75rem; }
+  .copy a { color: inherit; text-decoration: underline; }
+  .pixel { font-family: "Geist Pixel"; color: var(--ink); font-size: 11px; letter-spacing: .02em; -webkit-text-stroke: 1.1px var(--ink); }
+</style>
+</head>
+<body>
+  <div class="col">
+    <div class="head">
+      <span class="wordmark">BLOX</span>
+      <span class="muted">www.blox.world</span>
+      <span class="muted mono" id="clock">--:--:-- --</span>
+    </div>
+
+    <div class="gen">
+      <div class="preview" id="previewWrap" title="click to download PNG">
+        <canvas id="preview"></canvas>
+      </div>
+      <div class="field">
+        <input type="text" id="seed" placeholder="name or email" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="actions">
+        <button id="randomBtn">Generate</button>
+        <button id="downloadBtn">Download</button>
+      </div>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="copy">
+      <p>Pixel-grid avatars rendered deterministically from any name or email.</p>
+      <p class="pixel">PUBLIC</p>
+      <p>@ <a href="https://wa-de.org" target="_blank" rel="noopener noreferrer">wa-de</a></p>
+    </div>
+  </div>
+
+<script>
+  // ---- deterministic hash + PRNG -------------------------------------------
+  function hashStr(str) {
+    let h = 2166136261 >>> 0;            // FNV-1a
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---- draw one identicon ---------------------------------------------------
+  // 5x5 grid, left half mirrored to the right (GitHub-style), one accent color.
+  function draw(canvas, seed, opts) {
+    opts = opts || {};
+    const cells = 5;
+    const color = opts.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    const dpr = opts.dpr || window.devicePixelRatio || 1;
+    const cssSize = opts.size || canvas.clientWidth || 64;
+    const size = cssSize * dpr;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, size, size);
+
+    // white plate
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size, size);
+
+    const rng = mulberry32(seed);
+    const pad = size * 0.14;
+    const grid = size - pad * 2;
+    const cell = grid / cells;
+    const cols = Math.ceil(cells / 2);
+
+    ctx.fillStyle = color;
+    for (let x = 0; x < cols; x++) {
+      for (let y = 0; y < cells; y++) {
+        if (rng() > 0.5) {
+          const px = pad + x * cell;
+          const py = pad + y * cell;
+          ctx.fillRect(Math.round(px), Math.round(py), Math.ceil(cell), Math.ceil(cell));
+          // mirror
+          const mx = pad + (cells - 1 - x) * cell;
+          ctx.fillRect(Math.round(mx), Math.round(py), Math.ceil(cell), Math.ceil(cell));
+        }
+      }
+    }
+  }
+
+  // ---- wiring ---------------------------------------------------------------
+  const preview = document.getElementById('preview');
+  const seedInput = document.getElementById('seed');
+  const strip = document.getElementById('strip');
+  let currentSeed = hashStr('wade@hellowade.dev');
+
+  const EXPORT_SIZE = 1024;   // resolution of the downloaded PNG
+  const stripSeed = (i) => (currentSeed ^ Math.imul(i + 1, 2654435761)) >>> 0;
+
+  // strip of 5 little ones
+  const stripCanvases = [];
+  for (let i = 0; i < 5; i++) {
+    const c = document.createElement('canvas');
+    c.title = 'click to download PNG';
+    strip.appendChild(c);
+    stripCanvases.push(c);
+    c.addEventListener('click', () => download(stripSeed(i), 'blox-' + i));
+  }
+
+  function renderAll() {
+    draw(preview, currentSeed);
+    stripCanvases.forEach((c, i) => draw(c, stripSeed(i)));
+  }
+
+  // render fresh at full resolution, then save — independent of on-screen size
+  function download(seed, name) {
+    const c = document.createElement('canvas');
+    c.style.width = EXPORT_SIZE + 'px';   // draw() reads clientWidth
+    document.body.appendChild(c);
+    draw(c, seed, { dpr: 1, size: EXPORT_SIZE });
+    document.body.removeChild(c);
+    const a = document.createElement('a');
+    a.download = (name || 'blox') + '.png';
+    a.href = c.toDataURL('image/png');
+    a.click();
+  }
+
+  seedInput.addEventListener('input', () => {
+    const v = seedInput.value.trim();
+    currentSeed = v ? hashStr(v) : hashStr('wade@hellowade.dev');
+    renderAll();
+  });
+
+  document.getElementById('randomBtn').addEventListener('click', () => {
+    currentSeed = (Math.random() * 0xffffffff) >>> 0;
+    seedInput.value = '';
+    renderAll();
+  });
+
+  document.getElementById('previewWrap').addEventListener('click', () => download(currentSeed, 'blox'));
+  document.getElementById('downloadBtn').addEventListener('click', () => download(currentSeed, 'blox'));
+
+  // ---- live clock (CST, like the original) ----------------------------------
+  function tick() {
+    const t = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', second: '2-digit',
+      hour12: true, timeZone: 'America/Chicago'
+    });
+    document.getElementById('clock').textContent = t + ' CST';
+  }
+  tick(); setInterval(tick, 1000);
+
+  renderAll();
+</script>
+</body>
+</html>
