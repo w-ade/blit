@@ -51,7 +51,8 @@
   .mono { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 
   /* ---- generator ---- */
-  .gen { display: flex; flex-direction: row; align-items: center; gap: 16px; }
+  .gen { display: flex; flex-direction: column; gap: 14px; }
+  .toprow { display: flex; align-items: center; gap: 16px; }
   .preview {
     width: 64px; height: 64px; border-radius: 0;
     background: #fff; overflow: hidden; cursor: pointer;
@@ -125,12 +126,17 @@
     </div>
 
     <div class="gen">
-      <div class="preview" id="previewWrap" title="click to download PNG">
-        <canvas id="preview"></canvas>
+      <div class="toprow">
+        <div class="preview" id="previewWrap" title="click to download PNG">
+          <canvas id="preview"></canvas>
+        </div>
+        <div class="actions">
+          <button id="randomBtn">Generate</button>
+          <button id="downloadBtn">Download</button>
+        </div>
       </div>
-      <div class="actions">
-        <button id="randomBtn">Generate</button>
-        <button id="downloadBtn">Download</button>
+      <div class="field">
+        <input type="text" id="seed" placeholder="name or email" autocomplete="off" spellcheck="false" />
       </div>
     </div>
 
@@ -237,6 +243,7 @@
 
   // ---- wiring ---------------------------------------------------------------
   const preview = document.getElementById('preview');
+  const seedInput = document.getElementById('seed');
   const EXPORT_SIZE = 1024;   // resolution of the downloaded PNG
 
   let currentSeed = null;     // null = the blit logo (default on load)
@@ -272,9 +279,17 @@
     a.click();
   }
 
+  // type a name/email → deterministic mark; empty → the blitblob
+  seedInput.addEventListener('input', () => {
+    const v = seedInput.value.trim();
+    currentSeed = v ? hashStr(v) : null;
+    renderAll();
+  });
+
   document.getElementById('randomBtn').addEventListener('click', () => {
     let s; do { s = (Math.random() * 0xffffffff) >>> 0; } while (fillCount(gridFromSeed(s)) < 6);
     currentSeed = s;
+    seedInput.value = '';
     renderAll();
   });
 
