@@ -226,17 +226,7 @@
     ctx.fillStyle = opts.plate || '#fff';
     ctx.fillRect(0, 0, size, size);
 
-    if (opts.vfade) {
-      // bg-linear-to-b from-transparent to-black/80, gradient-ease-in
-      const g = ctx.createLinearGradient(0, 0, 0, size);
-      for (let i = 0; i <= 10; i++) {
-        const t = i / 10;
-        g.addColorStop(t, 'rgba(0,0,0,' + (0.8 * t * t) + ')');   // ease-in (quad)
-      }
-      ctx.fillStyle = g;
-    } else {
-      ctx.fillStyle = opts.color || '#000';
-    }
+    ctx.fillStyle = opts.color || '#000';
     const cell = size / n;
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
@@ -261,7 +251,7 @@
     return currentSeed === null ? LOGO : gridFromSeed(currentSeed);
   }
   function currentPaint() {
-    if (currentSeed === null) return { vfade: true };   // blitblob: transparent→black/80 ease-in
+    if (currentSeed === null) return { color: '#292929' };   // blitblob: flat #292929
     return Object.assign({ plate: '#fff' }, paintFor(currentSeed));
   }
 
