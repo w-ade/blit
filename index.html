@@ -207,9 +207,12 @@
     [1, 0, 1, 0, 1],
   ];
 
-  // each generated mark gets its own color, deterministically from its seed
+  // ink-tones palette — theme-aware so the grays stay visible on either plate
+  const INK_LIGHT = ['#1d1d1f', '#4a4a4f', '#777777', '#a3a3a3', '#c4c4c4'];
+  const INK_DARK  = ['#ededed', '#c4c4c4', '#9a9a9a', '#6f6f6f', '#4a4a4f'];
   function colorFromSeed(seed) {
-    return 'hsl(' + (seed % 360) + ', 68%, 52%)';
+    const pal = matchMedia('(prefers-color-scheme: dark)').matches ? INK_DARK : INK_LIGHT;
+    return pal[seed % pal.length];
   }
 
   // ---- deterministic hash + PRNG -------------------------------------------
