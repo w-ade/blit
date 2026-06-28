@@ -131,7 +131,6 @@
       <div class="actions">
         <button id="randomBtn">Generate</button>
         <button id="downloadBtn">Download</button>
-        <button id="gradientBtn">Gradient: off</button>
       </div>
     </div>
 
@@ -177,24 +176,6 @@
   // each generated mark gets its own color, deterministically from its seed
   function colorFromSeed(seed) {
     return 'hsl(' + (seed % 360) + ', 68%, 52%)';
-  }
-
-  // OKLCH -> sRGB (Björn Ottosson). L 0..1, C ~0..0.37, H degrees. Returns "rgb(r,g,b)".
-  function oklch(L, C, H) {
-    const h = H * Math.PI / 180;
-    const a = C * Math.cos(h), b = C * Math.sin(h);
-    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
-    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
-    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
-    const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
-    let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-    let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-    let bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
-    const enc = (x) => {
-      x = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
-      return Math.max(0, Math.min(255, Math.round(x * 255)));
-    };
-    return 'rgb(' + enc(r) + ',' + enc(g) + ',' + enc(bl) + ')';
   }
 
   // ---- deterministic hash + PRNG -------------------------------------------
@@ -253,10 +234,6 @@
         g.addColorStop(t, 'rgba(0,0,0,' + (0.8 * t * t) + ')');   // ease-in (quad)
       }
       ctx.fillStyle = g;
-    } else if (opts.gradient) {
-      const g = ctx.createLinearGradient(0, 0, size, size);
-      opts.gradient.forEach((c, i) => g.addColorStop(i / (opts.gradient.length - 1), c));
-      ctx.fillStyle = g;
     } else {
       ctx.fillStyle = opts.color || '#000';
     }
@@ -273,13 +250,9 @@
   const EXPORT_SIZE = 1024;   // resolution of the downloaded PNG
 
   let currentSeed = null;     // null = the blit logo (default on load)
-  let gradientOn = false;
 
   // paint for a generated mark (never the logo)
   function paintFor(seed) {
-    const h = seed % 360;
-    // vibrant OKLCH hue-sweep, anchored at the mark's hue
-    if (gradientOn) return { gradient: [0, 70, 140, 210].map(d => oklch(0.70, 0.21, h + d)) };
     return { color: colorFromSeed(seed) };
   }
 
@@ -312,14 +285,6 @@
   document.getElementById('randomBtn').addEventListener('click', () => {
     let s; do { s = (Math.random() * 0xffffffff) >>> 0; } while (fillCount(gridFromSeed(s)) < 6);
     currentSeed = s;
-    renderAll();
-  });
-
-  const gradBtn = document.getElementById('gradientBtn');
-  gradBtn.addEventListener('click', () => {
-    gradientOn = !gradientOn;
-    gradBtn.classList.toggle('on', gradientOn);
-    gradBtn.textContent = 'Gradient: ' + (gradientOn ? 'on' : 'off');
     renderAll();
   });
 
