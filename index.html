@@ -71,7 +71,8 @@
 
   /* ---- header block ---- */
   .head { display: flex; flex-direction: column; gap: .25rem; }
-  .wordmark { font-family: "Geist Mono", ui-monospace, monospace; font-weight: 900; font-size: 24px; margin-bottom: 1.25rem; letter-spacing: -.01em; }
+  .wordmark { display: inline-flex; align-items: center; gap: 8px; font-family: "Geist Mono", ui-monospace, monospace; font-weight: 900; font-size: 24px; margin-bottom: 1.25rem; letter-spacing: -.01em; }
+  .wmlogo { width: .9em; height: .9em; flex-shrink: 0; }
   .muted { color: var(--muted); }
   .mono { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   #clock { color: var(--fainter); }
@@ -148,7 +149,7 @@
 <body>
   <div class="col">
     <div class="head">
-      <span class="wordmark">BLIT</span>
+      <span class="wordmark"><svg class="wmlogo" viewBox="0 0 5 5" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="2" y="0" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/></svg>BLIT</span>
       <span class="muted mono">www.blit.world</span>
       <span class="muted mono" id="clock">--:--:-- --</span>
     </div>
