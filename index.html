@@ -51,7 +51,7 @@
   .mono { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 
   /* ---- generator ---- */
-  .gen { display: flex; flex-direction: column; gap: 1rem; }
+  .gen { display: flex; flex-direction: row; align-items: center; gap: 16px; }
   .preview {
     width: 64px; height: 64px; border-radius: 0;
     background: #fff; overflow: hidden; cursor: pointer;
@@ -74,21 +74,22 @@
   input[type=text]:focus { border-color: var(--accent); }
   ::placeholder { color: #a3a3a3; }
 
-  .actions { display: flex; gap: 8px; }
+  .actions { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
   /* Dimsum ButtonComponent — variant: secondary, size: xs, shape: rounded */
   button {
     display: inline-flex; align-items: center; justify-content: center;
     flex-shrink: 0; gap: 6px;
-    height: 28px; padding: 0 12px;          /* size: xs */
+    height: 20px; padding: 0 8px;           /* size: xs, extra small */
     border: 1px solid #E5E5E5;              /* secondary: --br-primary */
     border-radius: 999px;                   /* shape: rounded (pill) */
     background: #FFFFFF;                     /* secondary: --bg-primary */
     color: #454545;                         /* secondary: --fg-secondary */
     font-family: "ABC Diatype", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 15px; line-height: 1.36;
+    font-size: 11px; line-height: 1;
     white-space: nowrap; cursor: pointer; outline: none;
   }
   button:hover { border-color: #DBDBDB; }   /* --br-primary-emphasis */
+  button.on { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }   /* active toggle */
 
   /* ---- strip (echo of the gl row) ---- */
   .strip { display: flex; gap: .25rem; }
@@ -101,6 +102,14 @@
   /* ---- copy ---- */
   .copy { color: var(--muted); display: flex; flex-direction: column; gap: .75rem; }
   .copy a { color: inherit; text-decoration: underline; }
+  .bio { color: #1d1d1f; }
+  .bio strong { font-weight: 600; }
+  .bio em { font-style: italic; }
+  .bio mark {
+    background: #f7c8ee; color: inherit;   /* fuchsia highlight — swap for your exact OG hex */
+    padding: .06em 0; border-radius: 2px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  }
   .brandicon { color: var(--ink); line-height: 0; margin: 0; }
   .brandicon svg { display: block; }
   .brandicon:hover svg { animation: blit-spin 1.2s linear infinite; }
@@ -119,18 +128,15 @@
       <div class="preview" id="previewWrap" title="click to download PNG">
         <canvas id="preview"></canvas>
       </div>
-      <div class="field">
-        <input type="text" id="seed" placeholder="name or email" autocomplete="off" spellcheck="false" />
-      </div>
       <div class="actions">
         <button id="randomBtn">Generate</button>
         <button id="downloadBtn">Download</button>
+        <button id="gradientBtn">Gradient: off</button>
       </div>
-      <div class="strip" id="strip"></div>
     </div>
 
     <div class="copy">
-      <p>Pixel-grid avatars rendered deterministically from any name or email.</p>
+      <p class="bio"><strong>&ldquo;Blit&rdquo;</strong> is primarily a computer graphics term. It refers to the <mark>rapid copying or moving of a block of digital data (like a bitmap, texture, or sprite) from one location in memory to another</mark>. Short for <em>bit-block transfer</em> (often called <em>bitblt</em>).</p>
       <p class="brandicon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M21 12C21 13.1046 20.1046 14 19 14C17.8954 14 17 13.1046 17 12C17 10.8954 17.8954 10 19 10C20.1046 10 21 10.8954 21 12Z" fill="#FF3B30"/>
         <path d="M7 12C7 13.1046 6.10457 14 5 14C3.89543 14 3 13.1046 3 12C3 10.8954 3.89543 10 5 10C6.10457 10 7 10.8954 7 12Z" fill="#FF9500"/>
@@ -155,7 +161,13 @@
   ];
   const N = 5;        // 5x5 grid
   const COLS = 3;     // free columns before mirroring
-  const FLIP = 0.28;  // chance each cell flips from the base in a variation (lower = closer to the mark)
+  const FLIP = 0.35;  // chance each cell flips from the base in a variation (lower = closer to the mark)
+  const BRAND = '#4642d7';  // the wade-mark blue (the default mark on load)
+
+  // each generated mark gets its own color, deterministically from its seed
+  function colorFromSeed(seed) {
+    return 'hsl(' + (seed % 360) + ', 68%, 52%)';
+  }
 
   // ---- deterministic hash + PRNG -------------------------------------------
   function hashStr(str) {
@@ -196,7 +208,14 @@
     ctx.fillRect(0, 0, size, size);
 
     const cell = size / N;
-    ctx.fillStyle = color;
+    if (opts.gradient) {
+      const g = ctx.createLinearGradient(0, 0, size, size);
+      g.addColorStop(0, opts.gradient[0]);
+      g.addColorStop(1, opts.gradient[1]);
+      ctx.fillStyle = g;
+    } else {
+      ctx.fillStyle = color;
+    }
     for (let y = 0; y < N; y++) {
       for (let x = 0; x < COLS; x++) {
         if (half[y][x]) {
@@ -210,60 +229,54 @@
 
   // ---- wiring ---------------------------------------------------------------
   const preview = document.getElementById('preview');
-  const seedInput = document.getElementById('seed');
-  const strip = document.getElementById('strip');
   const EXPORT_SIZE = 1024;   // resolution of the downloaded PNG
 
-  let currentSeed = 0;
-  let currentHalf = BASE;     // default = the exact wade mark
+  let currentSeed = null;     // null = the brand mark (default on load)
+  let currentHalf = BASE;     // the mark currently shown
+  let gradientOn = false;
 
-  const stripSeed = (i) => (currentSeed ^ Math.imul(i + 1, 2654435761)) >>> 0;
-  const stripHalf = (i) => halfFromSeed(stripSeed(i));
-
-  // strip of 5 sibling variations
-  const stripCanvases = [];
-  for (let i = 0; i < 5; i++) {
-    const c = document.createElement('canvas');
-    c.title = 'click to use this one';
-    strip.appendChild(c);
-    stripCanvases.push(c);
-    c.addEventListener('click', () => { currentHalf = stripHalf(i); renderAll(); });
+  // the paint (flat color or gradient) for a given seed — fully generated, never chosen
+  function paintFor(seed) {
+    // hue of the currently shown mark: 242 = brand blue, else from the seed
+    const h = seed === null ? 242 : seed % 360;
+    // gradient is the SAME hue, just light → dark of that one color
+    if (gradientOn) return { gradient: ['hsl(' + h + ', 78%, 61%)', 'hsl(' + h + ', 82%, 41%)'] };
+    return seed === null ? { color: BRAND } : { color: colorFromSeed(seed) };
   }
 
   function renderAll() {
-    draw(preview, currentHalf);
-    stripCanvases.forEach((c, i) => draw(c, stripHalf(i)));
+    draw(preview, currentHalf, paintFor(currentSeed));
   }
 
   // render fresh at full resolution, then save — independent of on-screen size
-  function downloadHalf(half, name) {
+  function downloadCurrent() {
     const c = document.createElement('canvas');
     c.style.width = EXPORT_SIZE + 'px';   // draw() reads clientWidth
     document.body.appendChild(c);
-    draw(c, half, { dpr: 1, size: EXPORT_SIZE });
+    draw(c, currentHalf, Object.assign({ dpr: 1, size: EXPORT_SIZE }, paintFor(currentSeed)));
     document.body.removeChild(c);
     const a = document.createElement('a');
-    a.download = (name || 'blit') + '.png';
+    a.download = 'blit.png';
     a.href = c.toDataURL('image/png');
     a.click();
   }
 
-  seedInput.addEventListener('input', () => {
-    const v = seedInput.value.trim();
-    if (v) { currentSeed = hashStr(v); currentHalf = halfFromSeed(currentSeed); }
-    else   { currentSeed = 0; currentHalf = BASE; }   // empty → exact mark
-    renderAll();
-  });
-
   document.getElementById('randomBtn').addEventListener('click', () => {
     currentSeed = (Math.random() * 0xffffffff) >>> 0;
     currentHalf = halfFromSeed(currentSeed);
-    seedInput.value = '';
     renderAll();
   });
 
-  document.getElementById('previewWrap').addEventListener('click', () => downloadHalf(currentHalf, 'blit'));
-  document.getElementById('downloadBtn').addEventListener('click', () => downloadHalf(currentHalf, 'blit'));
+  const gradBtn = document.getElementById('gradientBtn');
+  gradBtn.addEventListener('click', () => {
+    gradientOn = !gradientOn;
+    gradBtn.classList.toggle('on', gradientOn);
+    gradBtn.textContent = 'Gradient: ' + (gradientOn ? 'on' : 'off');
+    renderAll();
+  });
+
+  document.getElementById('previewWrap').addEventListener('click', downloadCurrent);
+  document.getElementById('downloadBtn').addEventListener('click', downloadCurrent);
 
   // ---- live clock (CST, like the original) ----------------------------------
   function tick() {
